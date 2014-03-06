@@ -13,6 +13,7 @@ import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 
+
 /**
  * Layout для зацикленной промотки вложенных View (если ширина вложений+1 больше ширины CircularLayout)
  */
