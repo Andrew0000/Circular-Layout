@@ -2,7 +2,6 @@
 <resources>
 
     <string name="app_name">CircularLayout</string>
-    <string name="action_settings">Settings</string>
-    <string name="hello_world">Hello world!</string>
+    <string name="hello_world">Hello world! This is CircularLayout.</string>
 
 </resources>

@@ -13,13 +13,24 @@
         android:layout_height="wrap_content"
         android:text="@string/hello_world" />
 
+    <View
+        android:background="#bbb"
+        android:layout_above="@+id/CircularLayout"
+        android:layout_width="match_parent"
+        android:layout_height="1px" />
+    
     <crocodile8000.circularlayout.lib.CircularLayout
         android:id="@+id/CircularLayout"
+        android:background="#fff"
         android:layout_width="match_parent"
         android:layout_height="160dp"
-        android:background="#2000"
         android:layout_centerHorizontal="true"
-        android:layout_centerVertical="true" >
-    </crocodile8000.circularlayout.lib.CircularLayout>
+        android:layout_centerVertical="true" />
 
+    <View
+        android:background="#bbb"
+        android:layout_below="@+id/CircularLayout"
+        android:layout_width="match_parent"
+        android:layout_height="1px" />
+    
 </RelativeLayout>

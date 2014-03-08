@@ -7,6 +7,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -19,26 +20,33 @@ import android.widget.RelativeLayout;
  */
 public class CircularLayout extends RelativeLayout {
 	
+	public static boolean needLog;
 	public static String logTag = "CircularLayout";
 	
 	private List<ViewGroup> itemList = new ArrayList<ViewGroup>();
+	
 	private int w, h;
 	private int itemW, itemH;
 	private int mPadding = 5 ;
 	private int lastXtouch, currXonStartTouch , startTouchX;
 	private boolean needCircular, canScroll;
+	
+	/** соотношение ширины одного итема (ViewGroup) к его высоте */
 	public float ItemWRatio = 1.25f;
 	
-	private int stepSaveSpeedCnt =5;
+	// запоминание последних скоростей промотки пальцем
+	private int stepSaveSpeedCnt = 5;
 	private int[] lastStepsSpeed = new int[stepSaveSpeedCnt];
 	
+	/** нужно ли продолжение промотки после отпускани€ */
+	public boolean needSpeed = true;
+	
 	private long lastUpdTime;
-	private CircularViewClickListener listener;
 	
 	private boolean isTouching;
 	
 	private int currItem;
-	private Paint paint;
+	private Paint paint, paintShadow;
 	
 	
 	
@@ -63,9 +71,13 @@ public class CircularLayout extends RelativeLayout {
 
 	
 	
-	
+	/**
+	 * »нициализаци€ параметров и обновление позиций итемов
+	 */
 	private void init(){
 		lastUpdTime = System.currentTimeMillis();
+
+		if (Build.VERSION.SDK_INT >=14) requestDisallowInterceptTouchEvent(true);
 		
 		initPaint();
 		
@@ -103,7 +115,7 @@ public class CircularLayout extends RelativeLayout {
 					currItem = i;
 				}
 				
-			}else{
+			}else if(canScroll){
 				if (currXonStartTouch > 0) currXonStartTouch=0;
 				else if (currXonStartTouch < w -totalViewsLen -mPadding) currXonStartTouch= w -totalViewsLen -mPadding;
 				left = currXonStartTouch+i*itemW+ i*mPadding + mPadding;
@@ -111,7 +123,7 @@ public class CircularLayout extends RelativeLayout {
 			
 			itemList.get(i).layout(left, mPadding, left+itemW, itemH);
 		}
-		Log.i(logTag, "currItem: "+currItem+ "   mostLeftX: "+mostLeftX);
+		if (needLog) Log.i(logTag, "currItem: "+currItem+ "   mostLeftX: "+mostLeftX);
 	}
 	
 	
@@ -124,6 +136,11 @@ public class CircularLayout extends RelativeLayout {
 			paint.setColor(Color.BLUE);
 			paint.setAntiAlias(true);
 		}
+		if (paintShadow==null){
+			paintShadow = new Paint();
+			paintShadow.setColor(Color.argb(50, 0, 0, 0));
+			paintShadow.setAntiAlias(true);
+		}
 	}
 	
 	
@@ -131,19 +148,27 @@ public class CircularLayout extends RelativeLayout {
 	
 	public void onDraw(Canvas canv){
 		super.onDraw(canv);
-		
-		final int speedMult = 10;
-		int slideSpeed = getSlideSpeed()*speedMult;
-		if (slideSpeed != 0 && !isTouching){
-			if (slideSpeed>0){
-				slideSpeed--;
+
+		// промотка по инерции после отпускани€ (если нужна)
+		if (needSpeed){
+			final int speedMult = 10;
+			int slideSpeed = getSlideSpeed()*speedMult;
+			if (slideSpeed != 0 && !isTouching){
+				
+				final int maxSpeed = 250;
+				if (slideSpeed> maxSpeed) slideSpeed = maxSpeed;
+				if (slideSpeed< -maxSpeed) slideSpeed = -maxSpeed;
+				
+				if (slideSpeed>0){
+					slideSpeed--;
+				}
+				else{
+					slideSpeed++;
+				}
+				updLastStepsSpeed(slideSpeed/speedMult);
+				currXonStartTouch+=slideSpeed/speedMult;
+				init();
 			}
-			else{
-				slideSpeed++;
-			}
-			updLastStepsSpeed(slideSpeed/speedMult);
-			currXonStartTouch+=slideSpeed/speedMult;
-			init();
 		}
 		drawBottomCircles(canv);
 	}
@@ -166,7 +191,9 @@ public class CircularLayout extends RelativeLayout {
 	
 	
 	
-	
+	/**
+	 * ƒобавление одного итема на layout
+	 */
 	public void addItem(Context context, ViewGroup view){
 		view.setTag(itemList.size());
 		itemList.add(view);
@@ -180,17 +207,21 @@ public class CircularLayout extends RelativeLayout {
 	
 	@Override
 	public boolean onInterceptTouchEvent(MotionEvent event) {
-		Log.d(logTag, "onInterceptTouchEvent");
-		if (listener!=null) listener.onClick(""+event.getAction());
+		if (needLog) Log.d(logTag, "onInterceptTouchEvent");
 		
 		if ( canScroll && event.getAction() == MotionEvent.ACTION_DOWN) {
 			startTouch(event);
 			return false;
 		}
 		
-		if ( canScroll && event.getAction() == MotionEvent.ACTION_MOVE) return true;
+		if ( canScroll && event.getAction() == MotionEvent.ACTION_MOVE) {
+			// сглаживание небольших проскальзываний пальца что бы пережать касание потомку, 
+			// даже если, например был сдвиг касани€ на 1-2 пиксел€
+			int pathX = Math.abs( (int)event.getX() - startTouchX ) ;
+			if (pathX>h/10) return true;
+		}
 		
-	    return super.onInterceptTouchEvent(event);
+	    return false;
 	}
 	
 
@@ -199,6 +230,7 @@ public class CircularLayout extends RelativeLayout {
 		startTouchX = (int)event.getX();
 		lastXtouch = startTouchX;
 		isTouching = true;
+		clearLastStepsSpeed();
 	}
 	
 	
@@ -219,7 +251,7 @@ public class CircularLayout extends RelativeLayout {
 		}
     	
 		else if ( canScroll && event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-			Log.i(logTag, "currXonStartTouch: " +currXonStartTouch+ "  speed: "+getSlideSpeed());
+			if (needLog) Log.i(logTag, "currXonStartTouch: " +currXonStartTouch+ "  speed: "+getSlideSpeed());
 			init();
 			isTouching = false;
 		}
@@ -231,6 +263,16 @@ public class CircularLayout extends RelativeLayout {
     
     
     /**
+     * ќбнулить массив последних скоростей промотки
+     */
+    private void clearLastStepsSpeed(){
+    	for (int i =0; i< lastStepsSpeed.length; i++){
+    		lastStepsSpeed[i] = 0;
+    	}
+    }
+    
+    
+    /**
      * ќбновить массив последних скоростей промотки
      */
     private void updLastStepsSpeed(int lastXSpeed){
@@ -239,7 +281,6 @@ public class CircularLayout extends RelativeLayout {
     	}
     	lastStepsSpeed[lastStepsSpeed.length-1] = lastXSpeed;
     }
-    
     
     
     /**
