@@ -184,8 +184,9 @@ public class CircularLayout extends RelativeLayout {
 		int pad = w / 25;
 		int startX = w/2 - pad*itemList.size()/2;
 		int y = h - (h/10) + (h/10)/2;
+		int radius = h/50;
 		for (int i=0; i<itemList.size(); i++){
-			canv.drawCircle(startX+ pad*i, y, currItem==i? 6 : 3 , paint);
+			canv.drawCircle(startX+ pad*i, y, currItem==i? radius*2 : radius , paint);
 		}
 	}
 	
